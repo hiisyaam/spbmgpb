@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary: #3b82f6;
+  --color-primary-container: #eff6ff;
+  --color-secondary: #10b981;
+  --color-secondary-container: #ecfdf5;
+  --color-accent: #f59e0b;
+  --color-surface: #f8f9fa;
+  --color-surface-container: #ffffff;
+  --color-on-surface: #1f2937;
+  --color-on-surface-variant: #6b7280;
+  --color-border: #e5e7eb;
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-on-surface font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline tracking-tight;
+  }
+}
+
+.card {
+  @apply bg-surface-container border border-border rounded-xl p-5 shadow-[0_2px_4px_rgba(0,0,0,0.02)];
+}
+
+.card-title {
+  @apply text-sm font-bold uppercase tracking-wider text-on-surface-variant mb-4 border-b border-border pb-2;
+}
+
+.btn {
+  @apply px-5 py-3 rounded-lg font-semibold transition-all cursor-pointer inline-flex items-center justify-center gap-2;
+}
+
+.btn-primary {
+  @apply bg-primary text-white hover:bg-primary/90;
+}
+
+.btn-outline {
+  @apply bg-white border border-border text-on-surface hover:bg-surface;
+}
+
+.code-block {
+  @apply font-mono bg-[#1e293b] text-[#f8fafc] p-4 rounded-lg text-xs leading-relaxed;
+}
+
