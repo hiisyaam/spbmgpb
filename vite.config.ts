@@ -11,18 +11,18 @@ export default defineConfig(({mode}) => {
       react(), 
       tailwindcss(),
       VitePWA({
-        registerType: 'autoUpdate', // Otomatis update service worker saat ada versi baru
-        includeAssets: ['Sortify.png'], // Daftarkan aset statis dari folder public
+        registerType: 'autoUpdate',
+        includeAssets: ['Sortify.png'],
         manifest: {
             name: 'Sortify - Sorting Visualizer',
             short_name: 'Sortify',
             description: 'Aplikasi visualisasi algoritma pengurutan (Bubble Sort & Selection Sort)',
-            theme_color: '#ffffff', // Sesuaikan dengan warna dominan UI Anda
+            theme_color: '#ffffff',
             background_color: '#ffffff',
-            display: 'standalone', // Membuatnya tampil seperti native app tanpa address bar browser
+            display: 'standalone',
             icons: [
               {
-                src: '/Sortify.png', // Gunakan file Sortify.png yang sudah ada di folder public
+                src: '/Sortify.png',
                 sizes: '192x192',
                 type: 'image/png'
               },
@@ -30,7 +30,7 @@ export default defineConfig(({mode}) => {
                 src: '/Sortify1.png', 
                 sizes: '512x512',
                 type: 'image/png',
-                purpose: 'any' // Disarankan untuk Android
+                purpose: 'any'
               }
             ],
             screenshots:[
@@ -48,7 +48,7 @@ export default defineConfig(({mode}) => {
             ]
         },
         devOptions: {
-          enabled: true // Aktifkan agar bisa di-test saat mode 'npm run dev'
+          enabled: true
         }
       })
     ],
@@ -61,8 +61,6 @@ export default defineConfig(({mode}) => {
       },
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
       host: '0.0.0.0',
       port: 5173,

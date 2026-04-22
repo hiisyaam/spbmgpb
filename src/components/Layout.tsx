@@ -31,7 +31,7 @@ export default function Layout({ children }: LayoutProps) {
               onClick={handleNavClick}
               className="text-xl md:text-2xl font-extrabold tracking-tighter text-primary"
             >
-              SORTIFY
+              <img src="/logo.png" alt="logo utama" className="h-25"/>
             </Link>
             <div className="hidden md:flex gap-8 items-center">
               {navItems.map((item) => (

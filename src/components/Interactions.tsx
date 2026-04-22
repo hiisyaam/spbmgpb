@@ -1,37 +1,60 @@
-import { useState } from 'react';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { useState, useMemo } from 'react'
+import {
+  DndContext, closestCenter,
+  KeyboardSensor, PointerSensor, TouchSensor,
+  useSensor, useSensors, DragEndEvent
+} from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface SortableItemProps {
   id: string;
   text: string;
-  key?: string;
+  status?: 'correct' | 'incorrect' | 'idle';
 }
 
-function SortableItem({ id, text }: SortableItemProps) {
+function SortableItem({ id, text, status = 'idle' }: SortableItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 100 : 1,
+    WebkitUserSelect: 'none' as const,
+    userSelect: 'none' as const,
+    touchAction: 'none' as const,
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
+      {...listeners}
+      {...attributes}
       className={cn(
-        "bg-white p-3 rounded-lg border border-border shadow-sm flex items-center justify-between group hover:bg-primary-container transition-colors cursor-grab",
-        isDragging && "opacity-50 shadow-md"
+        "bg-white p-3 rounded-lg border shadow-sm flex items-center justify-between group transition-colors",
+        isDragging ? "cursor-grabbing opacity-50 shadow-md border-border" : "cursor-grab",
+        // Feedback warna per-item: hijau jika benar, merah jika salah, default jika belum divalidasi
+        status === 'correct' && "border-green-400 bg-green-50",
+        status === 'incorrect' && "border-red-400 bg-red-50",
+        status === 'idle' && "border-border hover:bg-primary-container",
       )}
     >
-      <code className="text-primary font-bold text-xs">{text}</code>
-      <div {...listeners} {...attributes} className="text-on-surface-variant group-hover:text-primary">
-        <GripVertical size={16} />
+      <code className={cn(
+        "font-bold text-xs select-none",
+        status === 'correct' ? "text-green-700" : status === 'incorrect' ? "text-red-700" : "text-primary"
+      )}>
+        {text}
+      </code>
+      <div className="flex items-center gap-2 pointer-events-none">
+        {/* Ikon status validasi, hanya muncul setelah tombol Run Validation ditekan */}
+        {status === 'correct' && <CheckCircle2 size={14} className="text-green-500" />}
+        {status === 'incorrect' && <XCircle size={14} className="text-red-500" />}
+        <div className="text-on-surface-variant group-hover:text-primary">
+          <GripVertical size={16} />
+        </div>
       </div>
     </div>
   );
@@ -64,35 +87,92 @@ export function Level3Interaction({ algorithm, onSuccess, onFailure }: Level3Pro
     { id: '7', text: '}' },
   ];
 
-  const initialBlocks = algorithm === 'bubble_sort' ? bubbleSortBlocks : selectionSortBlocks;
-  const [items, setItems] = useState(() => [...initialBlocks].sort(() => Math.random() - 0.5));
+  // useMemo memastikan initialBlocks adalah referensi yang STABIL — tidak berubah
+  // antar re-render. Ini penting agar validasi selalu membandingkan dengan
+  // urutan yang benar yang sama, bukan objek baru yang kebetulan isinya sama.
+  const initialBlocks = useMemo(
+    () => algorithm === 'bubble_sort' ? bubbleSortBlocks : selectionSortBlocks,
+    [algorithm] // hanya dibuat ulang jika algorithm berubah
+  );
+
+  const [items, setItems] = useState(() => {
+    // Fisher-Yates shuffle — algoritma acak yang benar-benar uniform,
+    // tidak seperti .sort(() => Math.random() - 0.5) yang biased.
+    // Juga memastikan hasil tidak sama persis dengan urutan asli (sudah terjawab dari awal).
+    const arr = [...initialBlocks];
+    let shuffled;
+    do {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      shuffled = [...arr];
+      // Ulangi jika hasil shuffle kebetulan sama persis dengan jawaban benar
+    } while (shuffled.every((item, idx) => item.id === initialBlocks[idx].id));
+    return shuffled;
+  });
+
+  // State untuk menyimpan status validasi per item ('correct' | 'incorrect' | 'idle')
+  // Ini memberi feedback visual yang jelas kepada pengguna baris mana yang salah posisi
+  const [itemStatuses, setItemStatuses] = useState<Record<string, 'correct' | 'incorrect' | 'idle'>>(
+    () => Object.fromEntries(initialBlocks.map(b => [b.id, 'idle']))
+  );
+  const [hasValidated, setHasValidated] = useState(false);
+
+  const pointerSensor = useSensor(PointerSensor, {
+    activationConstraint: { distance: 8 },
+  });
+
+  const touchSensor = useSensor(TouchSensor, {
+    activationConstraint: { delay: 200, tolerance: 8 },
+  });
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    pointerSensor,
+    touchSensor,
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (over && active.id !== over.id) {
       setItems((items) => {
         const oldIndex = items.findIndex((i) => i.id === active.id);
         const newIndex = items.findIndex((i) => i.id === over.id);
         return arrayMove(items, oldIndex, newIndex);
       });
+      // Reset status validasi setiap kali pengguna menggeser item —
+      // agar feedback lama tidak menyesatkan setelah ada perubahan urutan
+      setItemStatuses(Object.fromEntries(initialBlocks.map(b => [b.id, 'idle'])));
+      setHasValidated(false);
     }
   };
 
   const checkSolution = () => {
-    const isCorrect = items.every((item, idx) => item.id === initialBlocks[idx].id);
-    if (isCorrect) {
-      onSuccess();
-    } else {
-      onFailure();
-    }
+    // Bandingkan urutan items saat ini dengan urutan jawaban yang benar (initialBlocks)
+    const statuses: Record<string, 'correct' | 'incorrect'> = {};
+    let allCorrect = true;
+
+    items.forEach((item, idx) => {
+      if (item.id === initialBlocks[idx].id) {
+        statuses[item.id] = 'correct';
+      } else {
+        statuses[item.id] = 'incorrect';
+        allCorrect = false;
+      }
+    });
+
+    setItemStatuses(statuses);
+    setHasValidated(true);
+
+    // Beri delay singkat agar pengguna sempat melihat feedback visual
+    // sebelum onSuccess/onFailure mengubah tampilan halaman
+    setTimeout(() => {
+      if (allCorrect) onSuccess();
+      else onFailure();
+    }, 600);
   };
 
   return (
@@ -109,7 +189,12 @@ export function Level3Interaction({ algorithm, onSuccess, onFailure }: Level3Pro
           >
             <div className="space-y-2">
               {items.map((item) => (
-                <SortableItem key={item.id} id={item.id} text={item.text} />
+                <SortableItem
+                  key={item.id}
+                  id={item.id}
+                  text={item.text}
+                  status={itemStatuses[item.id] ?? 'idle'}
+                />
               ))}
             </div>
           </SortableContext>
